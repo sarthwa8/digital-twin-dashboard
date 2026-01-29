@@ -1,0 +1,161 @@
+.connection-status {
+  background: var(--bg-medium);
+  border: 1px solid var(--neon-cyan);
+  border-radius: 10px;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  box-shadow: 
+    0 0 20px rgba(0, 255, 255, 0.2),
+    inset 0 0 20px rgba(0, 255, 255, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.connection-status::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  animation: borderGlow 2s linear infinite;
+}
+
+@keyframes borderGlow {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid var(--neon-cyan);
+}
+
+.status-icon {
+  color: var(--gray-400);
+}
+
+.status-icon.connected {
+  color: var(--neon-green);
+  filter: drop-shadow(0 0 8px var(--neon-green));
+}
+
+.status-icon.disconnected {
+  color: var(--neon-pink);
+  filter: drop-shadow(0 0 8px var(--neon-pink));
+}
+
+.status-icon.running {
+  color: var(--electric-blue);
+  filter: drop-shadow(0 0 8px var(--electric-blue));
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.status-label {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.status-value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--gray-100);
+  font-weight: 700;
+}
+
+.status-value.connected {
+  color: var(--neon-green);
+  text-shadow: 0 0 5px var(--neon-green);
+}
+
+.status-value.disconnected {
+  color: var(--neon-pink);
+  text-shadow: 0 0 5px var(--neon-pink);
+}
+
+.status-value.running {
+  color: var(--electric-blue);
+  text-shadow: 0 0 5px var(--electric-blue);
+}
+
+.status-value.fault-normal {
+  color: var(--neon-green);
+}
+
+.status-value.fault-innerrace {
+  color: var(--neon-orange);
+}
+
+.status-value.fault-ball {
+  color: var(--neon-pink);
+}
+
+.status-value.fault-outerrace {
+  color: #ff0066;
+}
+
+.status-divider {
+  width: 1px;
+  height: 3rem;
+  background: linear-gradient(180deg, transparent, var(--neon-cyan), transparent);
+  opacity: 0.5;
+}
+
+@media (max-width: 1024px) {
+  .connection-status {
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  .status-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .connection-status {
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+  }
+
+  .status-item {
+    gap: 0.75rem;
+  }
+
+  .status-icon-wrapper {
+    width: 35px;
+    height: 35px;
+  }
+
+  .status-label {
+    font-size: 0.65rem;
+  }
+
+  .status-value {
+    font-size: 0.9rem;
+  }
+}

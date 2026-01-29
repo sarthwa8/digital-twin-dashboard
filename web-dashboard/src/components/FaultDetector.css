@@ -1,0 +1,318 @@
+.fault-detector {
+  background: var(--bg-medium);
+  border: 2px solid var(--neon-pink);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 
+    0 0 20px rgba(255, 0, 255, 0.3),
+    inset 0 0 20px rgba(255, 0, 255, 0.05);
+  position: relative;
+}
+
+.fault-detector::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 0, 255, 0.1),
+    transparent
+  );
+  animation: scanEffect 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scanEffect {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.fault-header {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.2) 0%, rgba(255, 0, 255, 0.05) 100%);
+  border-bottom: 1px solid var(--neon-pink);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.fault-header svg {
+  color: var(--neon-pink);
+  filter: drop-shadow(0 0 8px var(--neon-pink));
+}
+
+.fault-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--gray-100);
+  margin: 0;
+  flex: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.model-badge {
+  background: rgba(255, 0, 255, 0.1);
+  border: 1px solid var(--neon-pink);
+  padding: 0.375rem 0.875rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--neon-pink);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fault-body {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.fault-body.no-data {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--gray-400);
+  font-family: var(--font-mono);
+}
+
+.fault-prediction {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+  background: rgba(10, 14, 20, 0.8);
+  border-radius: 10px;
+  border: 1px solid var(--gray-700);
+  position: relative;
+  overflow: hidden;
+}
+
+.fault-prediction::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--neon-pink), var(--neon-orange));
+  box-shadow: 0 0 10px var(--neon-pink);
+}
+
+.fault-icon {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.fault-icon.normal {
+  color: var(--neon-green);
+  filter: drop-shadow(0 0 12px var(--neon-green));
+}
+
+.fault-icon.fault {
+  color: var(--neon-pink);
+  filter: drop-shadow(0 0 12px var(--neon-pink));
+  animation: faultPulse 2s ease-in-out infinite;
+}
+
+@keyframes faultPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.fault-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fault-class {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin: 0;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.confidence-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.confidence-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--gray-300);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.confidence-value {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.5rem;
+  color: var(--gray-100);
+}
+
+.confidence-bar {
+  height: 2rem;
+  background: rgba(10, 14, 20, 0.9);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--gray-700);
+  position: relative;
+}
+
+.confidence-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.02) 10px,
+    rgba(255, 255, 255, 0.02) 20px
+  );
+}
+
+.confidence-fill {
+  height: 100%;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 0 20px currentColor,
+    inset 0 0 20px rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+.confidence-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.probabilities-section h4 {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-300);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 1.5rem 0;
+}
+
+.probabilities-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.probability-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(10, 14, 20, 0.5);
+  border-radius: 8px;
+  border: 1px solid var(--gray-700);
+  transition: all 0.3s;
+}
+
+.probability-item:hover {
+  background: rgba(10, 14, 20, 0.8);
+  border-color: var(--neon-cyan);
+  transform: translateX(4px);
+}
+
+.probability-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.probability-label {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--gray-300);
+  font-weight: 600;
+}
+
+.probability-value {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--gray-100);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.probability-bar {
+  height: 0.75rem;
+  background: rgba(10, 14, 20, 0.9);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--gray-700);
+}
+
+.probability-fill {
+  height: 100%;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px currentColor;
+}
+
+@media (max-width: 768px) {
+  .fault-body {
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .fault-prediction {
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .fault-class {
+    font-size: 2rem;
+  }
+
+  .confidence-value {
+    font-size: 1.25rem;
+  }
+}

@@ -1,0 +1,11 @@
+services:
+  - type: worker
+    name: motor-simulator
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python motor_sensor_simulator.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
