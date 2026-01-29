@@ -16,7 +16,7 @@ function UnityViewer({ faultData, statusData }) {
       <div className="unity-container">
         {/* ✅ IFRAME IS NOW ACTIVE */}
         <iframe
-          src="/unity/index.html"
+          src="/unity-build/index.html"
           title="Motor Digital Twin"
           style={{
             width: "100%",
