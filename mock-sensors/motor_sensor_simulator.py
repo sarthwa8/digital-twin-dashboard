@@ -360,7 +360,7 @@ class MotorSensorSimulator:
         print(f"\n{'='*60}")
         print("🚀 Starting Digital Twin Motor Sensor Simulation")
         print(f"{'='*60}")
-        print(f"Duration: {duration}s | Sample Rate: {sample_rate} Hz")
+        print(f"Duration: {'INFINITE' if duration == float('inf') else duration}s | Sample Rate: {sample_rate} Hz")
         print(f"Fault Cycle: {' → '.join([f.value for f, _ in self.fault_phases])}")
         print(f"{'='*60}\n")
         
@@ -381,6 +381,7 @@ class MotorSensorSimulator:
             interval = 1.0 / sample_rate
             start_time = time.time()
             
+            # Loop runs as long as time is less than duration (which is now infinity)
             while self.simulation_time < duration:
                 loop_start = time.time()
                 
@@ -421,10 +422,12 @@ class MotorSensorSimulator:
                 
         except KeyboardInterrupt:
             print("\n\n⏸️  Simulation stopped by user")
+            # Re-raise so the outer loop knows to stop on Ctrl+C
+            raise KeyboardInterrupt 
         finally:
             self.running = False
             print(f"\n{'='*60}")
-            print("✅ Simulation Complete")
+            print("✅ Simulation Ended (for this session)")
             print(f"{'='*60}\n")
             
             if connected:
@@ -434,15 +437,28 @@ class MotorSensorSimulator:
 def main():
     """Main entry point"""
     # Configuration
-    MQTT_BROKER = "broker.hivemq.com"  # Free public broker (change to your own)
+    MQTT_BROKER = "broker.hivemq.com"  # Free public broker
     MQTT_PORT = 1883
     
-    SIMULATION_DURATION = 240  # 4 minutes (covers all fault types)
+    # === CHANGED: Duration is now infinite for always-on deployment ===
+    SIMULATION_DURATION = float('inf') 
     SAMPLE_RATE = 1.0  # 1 Hz (1 sample per second)
     
-    # Create and run simulator
-    simulator = MotorSensorSimulator(mqtt_broker=MQTT_BROKER, mqtt_port=MQTT_PORT)
-    simulator.run_simulation(duration=SIMULATION_DURATION, sample_rate=SAMPLE_RATE)
+    # === CHANGED: Added Outer Retry Loop ===
+    # This ensures that if the script crashes (e.g. MQTT connection loss),
+    # it automatically restarts itself after 5 seconds.
+    while True:
+        try:
+            simulator = MotorSensorSimulator(mqtt_broker=MQTT_BROKER, mqtt_port=MQTT_PORT)
+            simulator.run_simulation(duration=SIMULATION_DURATION, sample_rate=SAMPLE_RATE)
+        except KeyboardInterrupt:
+            # Allow manual stop via Ctrl+C without restarting
+            print("🛑 Manual Stop Detected. Exiting...")
+            break
+        except Exception as e:
+            print(f"❌ CRASH DETECTED: {e}")
+            print("🔄 Restarting simulation in 5 seconds...")
+            time.sleep(5)
 
 
 if __name__ == "__main__":
