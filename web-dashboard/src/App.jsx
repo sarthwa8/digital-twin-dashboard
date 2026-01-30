@@ -10,9 +10,9 @@ import "./App.css";
 // ------------------------------------------------------------------
 // 🔒 CONFIGURATION (HiveMQ Cloud)
 // ------------------------------------------------------------------
-// 1. Cluster URL: MUST include 'wss://' and Port ':8884/mqtt' for secure connection
+// 1. Cluster URL: MUST include 'wss://' and Port ':443/mqtt' for secure connection
 const CLUSTER_URL =
-  "wss://0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud:8884/mqtt";
+  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt";
 
 // 2. Your Credentials (Required for HiveMQ Cloud)
 const MQTT_USERNAME = "Sarthak_Sukhral";
