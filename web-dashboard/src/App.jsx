@@ -1,19 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import mqtt from 'mqtt';
-import Header from './components/Header';
-import ConnectionStatus from './components/ConnectionStatus';
-import FaultDetector from './components/FaultDetector';
-import SensorGrid from './components/SensorGrid';
-import UnityViewer from './components/UnityViewer';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import mqtt from "mqtt";
+import Header from "./components/Header";
+import ConnectionStatus from "./components/ConnectionStatus";
+import FaultDetector from "./components/FaultDetector";
+import SensorGrid from "./components/SensorGrid";
+import UnityViewer from "./components/UnityViewer";
+import "./App.css";
 
-const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+// ------------------------------------------------------------------
+// 🔒 FIREWALL BYPASS CONFIGURATION (HiveMQ Cloud)
+// ------------------------------------------------------------------
+// 1. Replace with your HiveMQ Cloud Cluster URL (Keep the 'wss://' and ':443/mqtt')
+const CLUSTER_URL = "0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud";
+
+// 2. Replace with the Username & Password you created in "Access Management"
+const MQTT_USERNAME = "Sarthak_Sukhral";
+const MQTT_PASSWORD = "RH48eo89#";
+// ------------------------------------------------------------------
+
 const TOPICS = {
-  imu: 'digitaltwin/motor/sensors/imu',
-  power: 'digitaltwin/motor/sensors/power',
-  thermal: 'digitaltwin/motor/sensors/thermal',
-  fault: 'digitaltwin/motor/fault/prediction',
-  status: 'digitaltwin/motor/status',
+  imu: "digitaltwin/motor/sensors/imu",
+  power: "digitaltwin/motor/sensors/power",
+  thermal: "digitaltwin/motor/sensors/thermal",
+  fault: "digitaltwin/motor/fault/prediction",
+  status: "digitaltwin/motor/status",
 };
 
 function App() {
@@ -33,40 +43,37 @@ function App() {
   });
 
   useEffect(() => {
-    // Connect to MQTT broker
-    console.log('Connecting to MQTT broker...');
-    const client = mqtt.connect(MQTT_BROKER, {
+    console.log("Connecting to HiveMQ Cloud (Secure)...");
+
+    // ✅ Updated Connection Logic for Firewall Bypass
+    const client = mqtt.connect(CLUSTER_URL, {
       clientId: `dashboard-${Math.random().toString(16).substr(2, 8)}`,
       clean: true,
       reconnectPeriod: 5000,
+      username: MQTT_USERNAME, // Auth is required for Cloud
+      password: MQTT_PASSWORD,
     });
 
-    client.on('connect', () => {
-      console.log('Connected to MQTT broker');
+    client.on("connect", () => {
+      console.log("✅ Connected to HiveMQ Cloud via Port 443");
       setConnected(true);
-      
-      // Subscribe to all topics
+
       Object.values(TOPICS).forEach((topic) => {
         client.subscribe(topic, (err) => {
-          if (err) {
-            console.error(`Failed to subscribe to ${topic}:`, err);
-          } else {
-            console.log(`Subscribed to ${topic}`);
-          }
+          if (err) console.error(`Failed to subscribe to ${topic}:`, err);
         });
       });
     });
 
-    client.on('message', (topic, message) => {
+    client.on("message", (topic, message) => {
       try {
         const data = JSON.parse(message.toString());
-        
-        // Update sensor data based on topic
+
         if (topic === TOPICS.imu) {
           setSensorData((prev) => ({ ...prev, imu: data }));
           setDataHistory((prev) => ({
             ...prev,
-            imu: [...prev.imu.slice(-59), data].slice(-60), // Keep last 60 data points
+            imu: [...prev.imu.slice(-59), data].slice(-60),
           }));
         } else if (topic === TOPICS.power) {
           setSensorData((prev) => ({ ...prev, power: data }));
@@ -86,56 +93,43 @@ function App() {
           setSensorData((prev) => ({ ...prev, status: data }));
         }
       } catch (error) {
-        console.error('Error parsing MQTT message:', error);
+        console.error("Error parsing MQTT message:", error);
       }
     });
 
-    client.on('error', (error) => {
-      console.error('MQTT error:', error);
+    client.on("error", (error) => {
+      console.error("MQTT error:", error);
       setConnected(false);
     });
 
-    client.on('close', () => {
-      console.log('MQTT connection closed');
+    client.on("close", () => {
+      console.log("MQTT connection closed");
       setConnected(false);
     });
 
     setMqttClient(client);
 
-    // Cleanup on unmount
     return () => {
-      if (client) {
-        client.end();
-      }
+      if (client) client.end();
     };
   }, []);
 
   return (
     <div className="app">
-      {/* Scanline Effect */}
       <div className="scanline-effect"></div>
-      
       <Header />
-      
       <div className="app-container">
         <ConnectionStatus connected={connected} status={sensorData.status} />
-        
         <div className="main-content">
-          {/* Left column - Unity viewer and fault detection */}
           <div className="left-column">
-            <UnityViewer 
+            <UnityViewer
               faultData={sensorData.fault}
               statusData={sensorData.status}
             />
             <FaultDetector faultData={sensorData.fault} />
           </div>
-
-          {/* Right column - Sensor data */}
           <div className="right-column">
-            <SensorGrid 
-              sensorData={sensorData}
-              dataHistory={dataHistory}
-            />
+            <SensorGrid sensorData={sensorData} dataHistory={dataHistory} />
           </div>
         </div>
       </div>

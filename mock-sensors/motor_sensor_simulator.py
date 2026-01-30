@@ -1,13 +1,16 @@
 """
-Digital Twin Motor Sensor Simulator
+Digital Twin Motor Sensor Simulator (Firewall Bypass Edition)
 Generates realistic sensor data for MPU-6050, PZEM-004T, and DS18B20
 Simulates 4 fault conditions: Normal, InnerRace, Ball, OuterRace
+
+UPDATED: Uses HiveMQ Cloud (TLS/SSL) to bypass university firewalls.
 """
 
 import json
 import time
 import random
 import math
+import ssl  # ✅ REQUIRED FOR CLOUD CONNECTION
 from datetime import datetime
 from enum import Enum
 
@@ -27,16 +30,20 @@ class FaultType(Enum):
 
 
 class MotorSensorSimulator:
-    def __init__(self, mqtt_broker="broker.hivemq.com", mqtt_port=1883):
+    def __init__(self, mqtt_broker, mqtt_port, username=None, password=None):
         """
         Initialize the motor sensor simulator
         
         Args:
-            mqtt_broker: MQTT broker address (default: free HiveMQ public broker)
-            mqtt_port: MQTT broker port (default: 1883)
+            mqtt_broker: HiveMQ Cloud Cluster URL (e.g., 'xyz.s1.eu.hivemq.cloud')
+            mqtt_port: 8883 (Standard TLS Port)
+            username: Your Cloud Username
+            password: Your Cloud Password
         """
         self.broker = mqtt_broker
         self.port = mqtt_port
+        self.username = username
+        self.password = password
         self.client_id = f"motor-simulator-{random.randint(0, 1000)}"
         
         # MQTT Topics
@@ -67,6 +74,14 @@ class MotorSensorSimulator:
         # Initialize MQTT client
         if MQTT_AVAILABLE:
             self.client = mqtt.Client(client_id=self.client_id)
+            
+            # ✅ ENABLE TLS (Encryption) - Required for Cloud
+            self.client.tls_set(cert_reqs=ssl.CERT_NONE)
+            
+            # ✅ ENABLE AUTHENTICATION - Required for Cloud
+            if self.username and self.password:
+                self.client.username_pw_set(self.username, self.password)
+                
             self.client.on_connect = self.on_connect
             self.client.on_disconnect = self.on_disconnect
         else:
@@ -74,11 +89,18 @@ class MotorSensorSimulator:
     
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            print(f"✅ Connected to MQTT Broker: {self.broker}")
+            print(f"✅ Connected to HiveMQ Cloud Securely: {self.broker}")
             # Publish initial status
             self.publish_status("Connected")
         else:
-            print(f"❌ Failed to connect, return code {rc}")
+            error_codes = {
+                1: "Incorrect Protocol Version",
+                2: "Invalid Client Identifier",
+                3: "Server Unavailable",
+                4: "Bad Username or Password",  # Common error with Cloud
+                5: "Not Authorized"
+            }
+            print(f"❌ Connection Failed (Code {rc}: {error_codes.get(rc, 'Unknown Error')})")
     
     def on_disconnect(self, client, userdata, rc):
         print(f"⚠️  Disconnected from MQTT Broker")
@@ -90,7 +112,7 @@ class MotorSensorSimulator:
             return False
         
         try:
-            print(f"🔌 Connecting to {self.broker}:{self.port}...")
+            print(f"🔐 Connecting to {self.broker}:{self.port} (Secure)...")
             self.client.connect(self.broker, self.port, keepalive=60)
             self.client.loop_start()
             return True
@@ -130,46 +152,29 @@ class MotorSensorSimulator:
         self.publish(self.topics["status"], payload)
     
     def generate_imu_data(self):
-        """
-        Generate MPU-6050 IMU data (accelerometer + gyroscope)
-        Frequency characteristics vary by fault type
-        """
+        """Generate MPU-6050 IMU data (accelerometer + gyroscope)"""
         base_freq = self.motor_rpm / 60.0  # Convert RPM to Hz
         
         # Fault-specific vibration patterns
         fault_characteristics = {
             FaultType.NORMAL: {
-                "accel_amplitude": 0.5,
-                "gyro_amplitude": 2.0,
-                "noise_level": 0.1,
-                "harmonics": [1.0]  # Only fundamental frequency
+                "accel_amplitude": 0.5, "gyro_amplitude": 2.0, "noise_level": 0.1, "harmonics": [1.0]
             },
             FaultType.INNER_RACE: {
-                "accel_amplitude": 2.5,
-                "gyro_amplitude": 8.0,
-                "noise_level": 0.4,
-                "harmonics": [1.0, 5.4, 10.8]  # Inner race fault frequencies
+                "accel_amplitude": 2.5, "gyro_amplitude": 8.0, "noise_level": 0.4, "harmonics": [1.0, 5.4, 10.8]
             },
             FaultType.BALL: {
-                "accel_amplitude": 1.8,
-                "gyro_amplitude": 6.0,
-                "noise_level": 0.3,
-                "harmonics": [1.0, 2.3, 4.6]  # Ball fault frequencies
+                "accel_amplitude": 1.8, "gyro_amplitude": 6.0, "noise_level": 0.3, "harmonics": [1.0, 2.3, 4.6]
             },
             FaultType.OUTER_RACE: {
-                "accel_amplitude": 3.0,
-                "gyro_amplitude": 9.0,
-                "noise_level": 0.5,
-                "harmonics": [1.0, 3.6, 7.2]  # Outer race fault frequencies
+                "accel_amplitude": 3.0, "gyro_amplitude": 9.0, "noise_level": 0.5, "harmonics": [1.0, 3.6, 7.2]
             }
         }
         
         char = fault_characteristics[self.current_fault]
         
         # Generate vibration with harmonics
-        accel_x = 0
-        accel_y = 0
-        accel_z = 9.81  # Gravity
+        accel_x, accel_y, accel_z = 0, 0, 9.81
         
         for harmonic in char["harmonics"]:
             freq = base_freq * harmonic
@@ -183,7 +188,7 @@ class MotorSensorSimulator:
         accel_y += random.gauss(0, char["noise_level"])
         accel_z += random.gauss(0, char["noise_level"])
         
-        # Gyroscope (angular velocity)
+        # Gyroscope
         gyro_x = char["gyro_amplitude"] * math.sin(2 * math.pi * base_freq * self.simulation_time)
         gyro_y = char["gyro_amplitude"] * math.cos(2 * math.pi * base_freq * self.simulation_time)
         gyro_z = char["gyro_amplitude"] * math.sin(2 * math.pi * base_freq * self.simulation_time + math.pi/2)
@@ -194,30 +199,16 @@ class MotorSensorSimulator:
         
         return {
             "timestamp": datetime.now().isoformat(),
-            "accelerometer": {
-                "x": round(accel_x, 3),
-                "y": round(accel_y, 3),
-                "z": round(accel_z, 3),
-                "unit": "m/s²"
-            },
-            "gyroscope": {
-                "x": round(gyro_x, 3),
-                "y": round(gyro_y, 3),
-                "z": round(gyro_z, 3),
-                "unit": "°/s"
-            },
+            "accelerometer": {"x": round(accel_x, 3), "y": round(accel_y, 3), "z": round(accel_z, 3), "unit": "m/s²"},
+            "gyroscope": {"x": round(gyro_x, 3), "y": round(gyro_y, 3), "z": round(gyro_z, 3), "unit": "°/s"},
             "sample_rate_hz": 100
         }
     
     def generate_power_data(self):
-        """
-        Generate PZEM-004T power analyzer data
-        Current and power increase with fault severity
-        """
-        base_voltage = 230  # Volts (single phase)
-        base_current = 2.0  # Amperes at normal condition
+        """Generate PZEM-004T power analyzer data"""
+        base_voltage = 230
+        base_current = 2.0
         
-        # Fault increases current draw due to increased friction/imbalance
         fault_multipliers = {
             FaultType.NORMAL: 1.0,
             FaultType.INNER_RACE: 1.15,
@@ -226,16 +217,12 @@ class MotorSensorSimulator:
         }
         
         multiplier = fault_multipliers[self.current_fault]
-        
-        # Add some variation
         voltage = base_voltage + random.gauss(0, 2)
         current = base_current * multiplier + random.gauss(0, 0.1)
-        power = voltage * current * 0.85  # Power factor ~0.85
+        power = voltage * current * 0.85
         power_factor = 0.85 + random.gauss(0, 0.02)
-        
-        # Calculate apparent power and reactive power
         apparent_power = voltage * current
-        reactive_power = math.sqrt(apparent_power**2 - power**2)
+        reactive_power = math.sqrt(abs(apparent_power**2 - power**2))
         
         return {
             "timestamp": datetime.now().isoformat(),
@@ -246,23 +233,14 @@ class MotorSensorSimulator:
             "reactive_power": round(reactive_power, 2),
             "power_factor": round(power_factor, 3),
             "frequency": round(50 + random.gauss(0, 0.1), 2),
-            "units": {
-                "voltage": "V",
-                "current": "A",
-                "power": "W",
-                "frequency": "Hz"
-            }
+            "units": {"voltage": "V", "current": "A", "power": "W", "frequency": "Hz"}
         }
     
     def generate_thermal_data(self):
-        """
-        Generate DS18B20 thermal probe data
-        Temperature increases with fault severity
-        """
-        ambient_temp = 25  # Celsius
-        base_operating_temp = 45  # Normal operating temperature
+        """Generate DS18B20 thermal probe data"""
+        ambient_temp = 25
+        base_operating_temp = 45
         
-        # Fault increases heat generation
         fault_temp_increase = {
             FaultType.NORMAL: 0,
             FaultType.INNER_RACE: 8,
@@ -271,12 +249,8 @@ class MotorSensorSimulator:
         }
         
         temp_increase = fault_temp_increase[self.current_fault]
-        
-        # Temperature rises gradually with time
-        time_factor = min(self.simulation_time / 300, 1.0)  # Reaches steady state in 5 min
+        time_factor = min(self.simulation_time / 300, 1.0)
         current_temp = ambient_temp + (base_operating_temp - ambient_temp + temp_increase) * time_factor
-        
-        # Add noise
         current_temp += random.gauss(0, 0.5)
         
         return {
@@ -287,14 +261,9 @@ class MotorSensorSimulator:
         }
     
     def generate_fault_prediction(self):
-        """
-        Generate CNN fault classification predictions
-        Simulates the output from your trained model
-        """
-        # Confidence increases over time as more data is collected
-        time_factor = min(self.simulation_time / 30, 1.0)  # Full confidence after 30 seconds
+        """Generate CNN fault classification predictions"""
+        time_factor = min(self.simulation_time / 30, 1.0)
         
-        # Base probabilities for each fault type
         probabilities = {
             FaultType.NORMAL: 0.25,
             FaultType.INNER_RACE: 0.25,
@@ -302,24 +271,17 @@ class MotorSensorSimulator:
             FaultType.OUTER_RACE: 0.25
         }
         
-        # Increase probability of current fault
         probabilities[self.current_fault] = 0.70 + (0.15 * time_factor)
-        
-        # Distribute remaining probability
         remaining = 1.0 - probabilities[self.current_fault]
         other_faults = [f for f in FaultType if f != self.current_fault]
         for fault in other_faults:
             probabilities[fault] = remaining / len(other_faults)
         
-        # Add some noise
         for fault in FaultType:
             probabilities[fault] += random.gauss(0, 0.02)
         
-        # Normalize
         total = sum(probabilities.values())
         probabilities = {k: v/total for k, v in probabilities.items()}
-        
-        # Convert to percentage and round
         probabilities = {k.value: round(v * 100, 1) for k, v in probabilities.items()}
         
         predicted_class = self.current_fault.value
@@ -341,30 +303,20 @@ class MotorSensorSimulator:
         current_phase_duration = self.fault_phases[self.current_phase_index][1]
         
         if elapsed >= current_phase_duration:
-            # Move to next phase
             self.current_phase_index = (self.current_phase_index + 1) % len(self.fault_phases)
             self.current_fault = self.fault_phases[self.current_phase_index][0]
             self.phase_start_time = self.simulation_time
-            
             print(f"\n🔄 Phase Change: {self.current_fault.value} (Duration: {self.fault_phases[self.current_phase_index][1]}s)")
             print(f"{'='*60}")
     
     def run_simulation(self, duration=240, sample_rate=1.0):
-        """
-        Run the sensor simulation
-        
-        Args:
-            duration: Total simulation time in seconds (default: 240s = 4 minutes)
-            sample_rate: Data publishing rate in Hz (default: 1 Hz)
-        """
         print(f"\n{'='*60}")
-        print("🚀 Starting Digital Twin Motor Sensor Simulation")
+        print("🚀 Starting Digital Twin Motor Sensor Simulation (Secure Cloud)")
         print(f"{'='*60}")
         print(f"Duration: {'INFINITE' if duration == float('inf') else duration}s | Sample Rate: {sample_rate} Hz")
         print(f"Fault Cycle: {' → '.join([f.value for f, _ in self.fault_phases])}")
         print(f"{'='*60}\n")
         
-        # Connect to MQTT
         connected = self.connect_mqtt()
         if not connected:
             print("⚠️  Running in offline mode (output to console only)")
@@ -375,20 +327,15 @@ class MotorSensorSimulator:
         self.current_phase_index = 0
         self.current_fault = self.fault_phases[0][0]
         
-        time.sleep(2)  # Wait for connection to stabilize
+        time.sleep(2)
         
         try:
             interval = 1.0 / sample_rate
-            start_time = time.time()
             
-            # Loop runs as long as time is less than duration (which is now infinity)
             while self.simulation_time < duration:
                 loop_start = time.time()
-                
-                # Update fault phase
                 self.update_fault_phase()
                 
-                # Generate and publish sensor data
                 imu_data = self.generate_imu_data()
                 power_data = self.generate_power_data()
                 thermal_data = self.generate_thermal_data()
@@ -399,60 +346,59 @@ class MotorSensorSimulator:
                 self.publish(self.topics["thermal"], thermal_data)
                 self.publish(self.topics["fault"], fault_data)
                 
-                # Console output
                 elapsed_phase = self.simulation_time - self.phase_start_time
                 phase_duration = self.fault_phases[self.current_phase_index][1]
                 progress = (elapsed_phase / phase_duration) * 100
                 
-                print(f"[{self.simulation_time:04.0f}s] "
-                      f"{self.current_fault.value:12s} | "
+                print(f"[{self.simulation_time:04.0f}s] {self.current_fault.value:12s} | "
                       f"Temp: {thermal_data['temperature']:5.1f}°C | "
                       f"Current: {power_data['current']:5.2f}A | "
-                      f"Vibration: {abs(imu_data['accelerometer']['x']):5.2f} m/s² | "
-                      f"Confidence: {fault_data['confidence']:5.1f}% | "
-                      f"Progress: {progress:3.0f}%")
+                      f"Vib: {abs(imu_data['accelerometer']['x']):5.2f} | "
+                      f"Conf: {fault_data['confidence']:5.1f}%")
                 
-                # Update simulation time
                 self.simulation_time += interval
-                
-                # Sleep to maintain sample rate
                 elapsed = time.time() - loop_start
                 sleep_time = max(0, interval - elapsed)
                 time.sleep(sleep_time)
                 
         except KeyboardInterrupt:
             print("\n\n⏸️  Simulation stopped by user")
-            # Re-raise so the outer loop knows to stop on Ctrl+C
             raise KeyboardInterrupt 
         finally:
             self.running = False
-            print(f"\n{'='*60}")
-            print("✅ Simulation Ended (for this session)")
-            print(f"{'='*60}\n")
-            
             if connected:
                 self.disconnect_mqtt()
 
 
 def main():
-    """Main entry point"""
-    # Configuration
-    MQTT_BROKER = "broker.hivemq.com"  # Free public broker
-    MQTT_PORT = 1883
+    # -------------------------------------------------------------
+    # 🔒 SECURE CLOUD CONFIGURATION (Firewall Bypass)
+    # -------------------------------------------------------------
+    # 1. HiveMQ Cloud Cluster URL (Do NOT add 'wss://' or '/mqtt' here)
+    # Example: "8a92b1.s1.eu.hivemq.cloud"
+    MQTT_BROKER = "0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud" 
+
+    # 2. Port 8883 (Standard TLS Port for Python)
+    MQTT_PORT = 8883
+
+    # 3. Your Cloud Credentials
+    MQTT_USERNAME = "Sarthak_Sukhral"
+    MQTT_PASSWORD = "RH48eo89!#"
+    # -------------------------------------------------------------
     
-    # === CHANGED: Duration is now infinite for always-on deployment ===
     SIMULATION_DURATION = float('inf') 
-    SAMPLE_RATE = 1.0  # 1 Hz (1 sample per second)
+    SAMPLE_RATE = 1.0
     
-    # === CHANGED: Added Outer Retry Loop ===
-    # This ensures that if the script crashes (e.g. MQTT connection loss),
-    # it automatically restarts itself after 5 seconds.
     while True:
         try:
-            simulator = MotorSensorSimulator(mqtt_broker=MQTT_BROKER, mqtt_port=MQTT_PORT)
+            simulator = MotorSensorSimulator(
+                mqtt_broker=MQTT_BROKER, 
+                mqtt_port=MQTT_PORT,
+                username=MQTT_USERNAME,
+                password=MQTT_PASSWORD
+            )
             simulator.run_simulation(duration=SIMULATION_DURATION, sample_rate=SAMPLE_RATE)
         except KeyboardInterrupt:
-            # Allow manual stop via Ctrl+C without restarting
             print("🛑 Manual Stop Detected. Exiting...")
             break
         except Exception as e:
