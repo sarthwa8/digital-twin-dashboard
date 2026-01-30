@@ -10,12 +10,12 @@ import "./App.css";
 // ------------------------------------------------------------------
 // 🔒 FIREWALL BYPASS CONFIGURATION (HiveMQ Cloud)
 // ------------------------------------------------------------------
-// 1. Replace with your HiveMQ Cloud Cluster URL (Keep the 'wss://' and ':443/mqtt')
+// 1. Cluster URL (Keep 'wss://' and ':443/mqtt')
 const CLUSTER_URL = "0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud";
 
-// 2. Replace with the Username & Password you created in "Access Management"
+// 2. Your HiveMQ Cloud Credentials
 const MQTT_USERNAME = "Sarthak_Sukhral";
-const MQTT_PASSWORD = "RH48eo89#";
+const MQTT_PASSWORD = "RH48eo89!#";
 // ------------------------------------------------------------------
 
 const TOPICS = {
@@ -45,23 +45,21 @@ function App() {
   useEffect(() => {
     console.log("Connecting to HiveMQ Cloud (Secure)...");
 
-    // ✅ Updated Connection Logic for Firewall Bypass
+    // ✅ Updated Connection Logic (Secure Port 443)
     const client = mqtt.connect(CLUSTER_URL, {
       clientId: `dashboard-${Math.random().toString(16).substr(2, 8)}`,
       clean: true,
       reconnectPeriod: 5000,
-      username: MQTT_USERNAME, // Auth is required for Cloud
-      password: MQTT_PASSWORD,
+      username: MQTT_USERNAME, // Required for Cloud
+      password: MQTT_PASSWORD, // Required for Cloud
     });
 
     client.on("connect", () => {
-      console.log("✅ Connected to HiveMQ Cloud via Port 443");
+      console.log("✅ Connected to HiveMQ Cloud");
       setConnected(true);
 
       Object.values(TOPICS).forEach((topic) => {
-        client.subscribe(topic, (err) => {
-          if (err) console.error(`Failed to subscribe to ${topic}:`, err);
-        });
+        client.subscribe(topic);
       });
     });
 
@@ -103,7 +101,6 @@ function App() {
     });
 
     client.on("close", () => {
-      console.log("MQTT connection closed");
       setConnected(false);
     });
 
@@ -116,10 +113,14 @@ function App() {
 
   return (
     <div className="app">
+      {/* ✅ KEEPS YOUR CYBERPUNK SCANLINES */}
       <div className="scanline-effect"></div>
+
       <Header />
+
       <div className="app-container">
         <ConnectionStatus connected={connected} status={sensorData.status} />
+
         <div className="main-content">
           <div className="left-column">
             <UnityViewer
@@ -128,6 +129,7 @@ function App() {
             />
             <FaultDetector faultData={sensorData.fault} />
           </div>
+
           <div className="right-column">
             <SensorGrid sensorData={sensorData} dataHistory={dataHistory} />
           </div>
