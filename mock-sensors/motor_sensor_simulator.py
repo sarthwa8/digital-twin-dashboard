@@ -374,16 +374,13 @@ def main():
     # -------------------------------------------------------------
     # 🔒 SECURE CLOUD CONFIGURATION (Firewall Bypass)
     # -------------------------------------------------------------
-    # 1. HiveMQ Cloud Cluster URL (Do NOT add 'wss://' or '/mqtt' here)
-    # Example: "8a92b1.s1.eu.hivemq.cloud"
-    MQTT_BROKER = "0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud" 
+    # ✅ Python needs to use WebSockets too to hit the 443 port
+    client = mqtt.Client(transport="websockets") # <--- CRITICAL CHANGE
+    client.tls_set() # Enable SSL
 
-    # 2. Port 8883 (Standard TLS Port for Python)
-    MQTT_PORT = 8883
-
-    # 3. Your Cloud Credentials
-    MQTT_USERNAME = "Sarthak_Sukhral"
-    MQTT_PASSWORD = "RH48eo89!#"
+# Use the exact same domain as the frontend
+    MQTT_BROKER = "custom-mqtt-broker-production.up.railway.app" 
+    MQTT_PORT = 443
     # -------------------------------------------------------------
     
     SIMULATION_DURATION = float('inf') 
@@ -393,9 +390,7 @@ def main():
         try:
             simulator = MotorSensorSimulator(
                 mqtt_broker=MQTT_BROKER, 
-                mqtt_port=MQTT_PORT,
-                username=MQTT_USERNAME,
-                password=MQTT_PASSWORD
+                mqtt_port=MQTT_PORT
             )
             simulator.run_simulation(duration=SIMULATION_DURATION, sample_rate=SAMPLE_RATE)
         except KeyboardInterrupt:
