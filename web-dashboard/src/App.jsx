@@ -8,11 +8,15 @@ import UnityViewer from "./components/UnityViewer";
 import "./App.css";
 
 // ------------------------------------------------------------------
-// 🔒 FIREWALL BYPASS CONFIGURATION (HiveMQ Cloud)
+// 🔒 CONFIGURATION (HiveMQ Cloud)
 // ------------------------------------------------------------------
-// 1. Cluster URL (Keep 'wss://' and ':443/mqtt')
+// 1. Cluster URL: MUST include 'wss://' and Port ':8884/mqtt' for secure connection
 const CLUSTER_URL =
-  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt";
+  "wss://0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud:8884/mqtt";
+
+// 2. Your Credentials (Required for HiveMQ Cloud)
+const MQTT_USERNAME = "Sarthak_Sukhral";
+const MQTT_PASSWORD = "RH48eo89!#";
 // ------------------------------------------------------------------
 
 const TOPICS = {
@@ -40,15 +44,15 @@ function App() {
   });
 
   useEffect(() => {
-    console.log("Connecting to HiveMQ Cloud (Secure)...");
+    console.log("Connecting to HiveMQ Cloud (Secure Port 8884)...");
 
-    // ✅ Updated Connection Logic (Secure Port 443)
     const client = mqtt.connect(CLUSTER_URL, {
       clientId: `dashboard-${Math.random().toString(16).substr(2, 8)}`,
       clean: true,
       reconnectPeriod: 5000,
-      username: MQTT_USERNAME, // Required for Cloud
-      password: MQTT_PASSWORD, // Required for Cloud
+      // ✅ Authentication restored to fix ReferenceError
+      username: MQTT_USERNAME,
+      password: MQTT_PASSWORD,
     });
 
     client.on("connect", () => {
@@ -110,14 +114,10 @@ function App() {
 
   return (
     <div className="app">
-      {/* ✅ KEEPS YOUR CYBERPUNK SCANLINES */}
       <div className="scanline-effect"></div>
-
       <Header />
-
       <div className="app-container">
         <ConnectionStatus connected={connected} status={sensorData.status} />
-
         <div className="main-content">
           <div className="left-column">
             <UnityViewer
@@ -126,7 +126,6 @@ function App() {
             />
             <FaultDetector faultData={sensorData.fault} />
           </div>
-
           <div className="right-column">
             <SensorGrid sensorData={sensorData} dataHistory={dataHistory} />
           </div>
