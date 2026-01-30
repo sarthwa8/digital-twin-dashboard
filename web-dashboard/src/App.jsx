@@ -12,8 +12,7 @@ import "./App.css";
 // ------------------------------------------------------------------
 // Replace with YOUR Railway Domain.
 // Format MUST be: wss://<YOUR-DOMAIN>:443/mqtt
-const CLUSTER_URL =
-  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt"; // <--- DOUBLE CHECK THIS URL
+const CLUSTER_URL = "wss://custom-mqtt-broker-production.up.railway.app:443"; // <--- DOUBLE CHECK THIS URL
 
 // ------------------------------------------------------------------
 
