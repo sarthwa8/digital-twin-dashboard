@@ -10,9 +10,9 @@ import "./App.css";
 // ------------------------------------------------------------------
 // 🔒 FIREWALL BYPASS CONFIGURATION (HiveMQ Cloud)
 // ------------------------------------------------------------------
-// 1. Cluster URL (Keep 'wss://' and ':443/mqtt')
+// 1. Cluster URL (Keep 'wss://' and ':8884/mqtt')
 const CLUSTER_URL =
-  "wss://0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud:443/mqtt";
+  "wss://0ad1bd1bd95e47578dcf81d81b956924.s1.eu.hivemq.cloud:8884/mqtt";
 
 // 2. Your HiveMQ Cloud Credentials
 const MQTT_USERNAME = "Sarthak_Sukhral";
