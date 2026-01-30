@@ -8,15 +8,13 @@ import UnityViewer from "./components/UnityViewer";
 import "./App.css";
 
 // ------------------------------------------------------------------
-// 🔒 CONFIGURATION (HiveMQ Cloud)
+// 🔒 FIREWALL BYPASS CONFIGURATION (Railway Frontend)
 // ------------------------------------------------------------------
-// 1. Cluster URL: MUST include 'wss://' and Port ':443/mqtt' for secure connection
+// Replace with YOUR Railway Domain.
+// Format MUST be: wss://<YOUR-DOMAIN>:443/mqtt
 const CLUSTER_URL =
-  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt";
+  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt"; // <--- DOUBLE CHECK THIS URL
 
-// 2. Your Credentials (Required for HiveMQ Cloud)
-const MQTT_USERNAME = "Sarthak_Sukhral";
-const MQTT_PASSWORD = "RH48eo89!#";
 // ------------------------------------------------------------------
 
 const TOPICS = {
@@ -44,19 +42,17 @@ function App() {
   });
 
   useEffect(() => {
-    console.log("Connecting to HiveMQ Cloud (Secure Port 8884)...");
+    console.log(`Connecting to ${CLUSTER_URL}...`);
 
     const client = mqtt.connect(CLUSTER_URL, {
       clientId: `dashboard-${Math.random().toString(16).substr(2, 8)}`,
       clean: true,
       reconnectPeriod: 5000,
-      // ✅ Authentication restored to fix ReferenceError
-      username: MQTT_USERNAME,
-      password: MQTT_PASSWORD,
+      // ❌ REMOVED username/password entirely since they are null
     });
 
     client.on("connect", () => {
-      console.log("✅ Connected to HiveMQ Cloud");
+      console.log("✅ Connected to Railway Broker");
       setConnected(true);
 
       Object.values(TOPICS).forEach((topic) => {

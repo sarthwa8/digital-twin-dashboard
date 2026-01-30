@@ -3,14 +3,14 @@ Digital Twin Motor Sensor Simulator (Firewall Bypass Edition)
 Generates realistic sensor data for MPU-6050, PZEM-004T, and DS18B20
 Simulates 4 fault conditions: Normal, InnerRace, Ball, OuterRace
 
-UPDATED: Uses HiveMQ Cloud (TLS/SSL) to bypass university firewalls.
+UPDATED: Uses Railway Custom Broker (WebSockets on Port 443) to bypass firewalls.
 """
 
 import json
 import time
 import random
 import math
-import ssl  # ✅ REQUIRED FOR CLOUD CONNECTION
+import ssl
 from datetime import datetime
 from enum import Enum
 
@@ -31,22 +31,12 @@ class FaultType(Enum):
 
 class MotorSensorSimulator:
     def __init__(self, mqtt_broker, mqtt_port, username=None, password=None):
-        """
-        Initialize the motor sensor simulator
-        
-        Args:
-            mqtt_broker: HiveMQ Cloud Cluster URL (e.g., 'xyz.s1.eu.hivemq.cloud')
-            mqtt_port: 8883 (Standard TLS Port)
-            username: Your Cloud Username
-            password: Your Cloud Password
-        """
         self.broker = mqtt_broker
         self.port = mqtt_port
         self.username = username
         self.password = password
         self.client_id = f"motor-simulator-{random.randint(0, 1000)}"
         
-        # MQTT Topics
         self.topics = {
             "imu": "digitaltwin/motor/sensors/imu",
             "power": "digitaltwin/motor/sensors/power",
@@ -55,30 +45,33 @@ class MotorSensorSimulator:
             "status": "digitaltwin/motor/status"
         }
         
-        # Simulation parameters
         self.current_fault = FaultType.NORMAL
         self.simulation_time = 0
-        self.motor_rpm = 1440  # Base RPM
+        self.motor_rpm = 1440
         self.running = False
         
-        # Fault simulation phase tracking
         self.fault_phases = [
-            (FaultType.NORMAL, 60),      # 60 seconds normal
-            (FaultType.INNER_RACE, 60),  # 60 seconds inner race fault
-            (FaultType.BALL, 60),        # 60 seconds ball fault
-            (FaultType.OUTER_RACE, 60),  # 60 seconds outer race fault
+            (FaultType.NORMAL, 60),
+            (FaultType.INNER_RACE, 60),
+            (FaultType.BALL, 60),
+            (FaultType.OUTER_RACE, 60),
         ]
         self.current_phase_index = 0
         self.phase_start_time = 0
         
-        # Initialize MQTT client
         if MQTT_AVAILABLE:
-            self.client = mqtt.Client(client_id=self.client_id)
+            # ✅ CRITICAL FIX: Force 'websockets' transport INSIDE the class
+            self.client = mqtt.Client(
+                client_id=self.client_id,
+                transport="websockets"  # <--- This is the key to port 443
+            )
             
-            # ✅ ENABLE TLS (Encryption) - Required for Cloud
+            # ✅ Enable TLS for Railway (Port 443 requirement)
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             
-            # ✅ ENABLE AUTHENTICATION - Required for Cloud
+            # ✅ Set correct path for Mosquitto on Railway
+            self.client.ws_set_options(path="/") 
+            
             if self.username and self.password:
                 self.client.username_pw_set(self.username, self.password)
                 
@@ -89,30 +82,21 @@ class MotorSensorSimulator:
     
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            print(f"✅ Connected to HiveMQ Cloud Securely: {self.broker}")
-            # Publish initial status
+            print(f"✅ Connected to Railway Broker: {self.broker}")
             self.publish_status("Connected")
         else:
-            error_codes = {
-                1: "Incorrect Protocol Version",
-                2: "Invalid Client Identifier",
-                3: "Server Unavailable",
-                4: "Bad Username or Password",  # Common error with Cloud
-                5: "Not Authorized"
-            }
-            print(f"❌ Connection Failed (Code {rc}: {error_codes.get(rc, 'Unknown Error')})")
+            print(f"❌ Failed to connect, return code {rc}")
     
     def on_disconnect(self, client, userdata, rc):
         print(f"⚠️  Disconnected from MQTT Broker")
     
     def connect_mqtt(self):
-        """Connect to MQTT broker"""
         if not MQTT_AVAILABLE or self.client is None:
             print("❌ MQTT not available. Running in offline mode.")
             return False
         
         try:
-            print(f"🔐 Connecting to {self.broker}:{self.port} (Secure)...")
+            print(f"🔐 Connecting to {self.broker}:{self.port} (WebSocket)...")
             self.client.connect(self.broker, self.port, keepalive=60)
             self.client.loop_start()
             return True
@@ -121,14 +105,12 @@ class MotorSensorSimulator:
             return False
     
     def disconnect_mqtt(self):
-        """Disconnect from MQTT broker"""
         if self.client:
             self.publish_status("Disconnected")
             self.client.loop_stop()
             self.client.disconnect()
     
     def publish(self, topic, payload):
-        """Publish message to MQTT topic"""
         if self.client and MQTT_AVAILABLE:
             try:
                 result = self.client.publish(topic, json.dumps(payload))
@@ -137,11 +119,9 @@ class MotorSensorSimulator:
             except Exception as e:
                 print(f"❌ Publish error: {e}")
         else:
-            # Offline mode - just print
             print(f"📤 [{topic}] {json.dumps(payload, indent=2)}")
     
     def publish_status(self, status):
-        """Publish motor status"""
         payload = {
             "timestamp": datetime.now().isoformat(),
             "status": status,
@@ -152,10 +132,8 @@ class MotorSensorSimulator:
         self.publish(self.topics["status"], payload)
     
     def generate_imu_data(self):
-        """Generate MPU-6050 IMU data (accelerometer + gyroscope)"""
-        base_freq = self.motor_rpm / 60.0  # Convert RPM to Hz
+        base_freq = self.motor_rpm / 60.0
         
-        # Fault-specific vibration patterns
         fault_characteristics = {
             FaultType.NORMAL: {
                 "accel_amplitude": 0.5, "gyro_amplitude": 2.0, "noise_level": 0.1, "harmonics": [1.0]
@@ -173,7 +151,6 @@ class MotorSensorSimulator:
         
         char = fault_characteristics[self.current_fault]
         
-        # Generate vibration with harmonics
         accel_x, accel_y, accel_z = 0, 0, 9.81
         
         for harmonic in char["harmonics"]:
@@ -183,12 +160,10 @@ class MotorSensorSimulator:
             accel_y += char["accel_amplitude"] * math.cos(phase) / len(char["harmonics"])
             accel_z += char["accel_amplitude"] * math.sin(phase + math.pi/4) / len(char["harmonics"])
         
-        # Add noise
         accel_x += random.gauss(0, char["noise_level"])
         accel_y += random.gauss(0, char["noise_level"])
         accel_z += random.gauss(0, char["noise_level"])
         
-        # Gyroscope
         gyro_x = char["gyro_amplitude"] * math.sin(2 * math.pi * base_freq * self.simulation_time)
         gyro_y = char["gyro_amplitude"] * math.cos(2 * math.pi * base_freq * self.simulation_time)
         gyro_z = char["gyro_amplitude"] * math.sin(2 * math.pi * base_freq * self.simulation_time + math.pi/2)
@@ -205,7 +180,6 @@ class MotorSensorSimulator:
         }
     
     def generate_power_data(self):
-        """Generate PZEM-004T power analyzer data"""
         base_voltage = 230
         base_current = 2.0
         
@@ -237,7 +211,6 @@ class MotorSensorSimulator:
         }
     
     def generate_thermal_data(self):
-        """Generate DS18B20 thermal probe data"""
         ambient_temp = 25
         base_operating_temp = 45
         
@@ -261,7 +234,6 @@ class MotorSensorSimulator:
         }
     
     def generate_fault_prediction(self):
-        """Generate CNN fault classification predictions"""
         time_factor = min(self.simulation_time / 30, 1.0)
         
         probabilities = {
@@ -298,7 +270,6 @@ class MotorSensorSimulator:
         }
     
     def update_fault_phase(self):
-        """Update the current fault phase based on time"""
         elapsed = self.simulation_time - self.phase_start_time
         current_phase_duration = self.fault_phases[self.current_phase_index][1]
         
@@ -372,14 +343,13 @@ class MotorSensorSimulator:
 
 def main():
     # -------------------------------------------------------------
-    # 🔒 SECURE CLOUD CONFIGURATION (Firewall Bypass)
+    # 🔒 FIREWALL BYPASS CONFIGURATION (Railway Backend)
     # -------------------------------------------------------------
-    # ✅ Python needs to use WebSockets too to hit the 443 port
-    client = mqtt.Client(transport="websockets") # <--- CRITICAL CHANGE
-    client.tls_set() # Enable SSL
-
-# Use the exact same domain as the frontend
+    # 1. YOUR RAILWAY DOMAIN (Copy from your Dashboard)
+    # Example: "mqtt-production-b67c.up.railway.app"
     MQTT_BROKER = "custom-mqtt-broker-production.up.railway.app" 
+    
+    # 2. Port 443 (Firewall Bypass)
     MQTT_PORT = 443
     # -------------------------------------------------------------
     
