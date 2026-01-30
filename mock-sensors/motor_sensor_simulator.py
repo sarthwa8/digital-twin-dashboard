@@ -70,7 +70,7 @@ class MotorSensorSimulator:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             
             # ✅ Set correct path for Mosquitto on Railway
-            self.client.ws_set_options(path="/") 
+            self.client.ws_set_options(path="/mqtt") 
             
             if self.username and self.password:
                 self.client.username_pw_set(self.username, self.password)
