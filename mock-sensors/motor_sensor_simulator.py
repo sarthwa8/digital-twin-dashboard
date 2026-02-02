@@ -21,13 +21,11 @@ except ImportError:
     MQTT_AVAILABLE = False
     print("⚠️  paho-mqtt not installed. Install with: pip install paho-mqtt")
 
-
 class FaultType(Enum):
     NORMAL = "Normal"
     INNER_RACE = "InnerRace"
     BALL = "Ball"
     OUTER_RACE = "OuterRace"
-
 
 class MotorSensorSimulator:
     def __init__(self, mqtt_broker, mqtt_port, username=None, password=None):
@@ -339,7 +337,6 @@ class MotorSensorSimulator:
             self.running = False
             if connected:
                 self.disconnect_mqtt()
-
 
 def main():
     # -------------------------------------------------------------
