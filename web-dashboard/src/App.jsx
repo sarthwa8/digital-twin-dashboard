@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import mqtt from "mqtt";
 import Header from "./components/Header";
 import ConnectionStatus from "./components/ConnectionStatus";
@@ -7,85 +7,40 @@ import SensorGrid from "./components/SensorGrid";
 import UnityViewer from "./components/UnityViewer";
 import "./App.css";
 
-// ------------------------------------------------------------------
-// 🔒 FIREWALL BYPASS CONFIGURATION (Railway Frontend)
-// ------------------------------------------------------------------
-// Replace with YOUR Railway Domain.
-// Format MUST be: wss://<YOUR-DOMAIN>:443/mqtt
-const CLUSTER_URL =
-  "wss://custom-mqtt-broker-production.up.railway.app:443/mqtt";
-// ------------------------------------------------------------------
-
-const TOPICS = {
-  imu: "digitaltwin/motor/sensors/imu",
-  power: "digitaltwin/motor/sensors/power",
-  thermal: "digitaltwin/motor/sensors/thermal",
-  fault: "digitaltwin/motor/fault/prediction",
-  status: "digitaltwin/motor/status",
-};
+const BROKER_URL = "ws://broker.emqx.io:8083/mqtt";
+const TOPIC = "npl/motor/telemetry";
 
 function App() {
-  const [mqttClient, setMqttClient] = useState(null);
+  const [, setMqttClient] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [sensorData, setSensorData] = useState({
-    imu: null,
-    power: null,
-    thermal: null,
-    fault: null,
-    status: null,
+  const [telemetry, setTelemetry] = useState({
+    speed: 0,
+    current: 0,
+    temperature: 0,
+    vibration: 0,
   });
-  const [dataHistory, setDataHistory] = useState({
-    imu: [],
-    power: [],
-    thermal: [],
-  });
+  const [dataHistory, setDataHistory] = useState([]);
 
   useEffect(() => {
-    console.log(`Connecting to ${CLUSTER_URL}...`);
+    console.log(`Connecting to ${BROKER_URL}...`);
 
-    const client = mqtt.connect(CLUSTER_URL, {
-      clientId: `dashboard-${Math.random().toString(16).substr(2, 8)}`,
+    const client = mqtt.connect(BROKER_URL, {
+      clientId: `dashboard-${Math.random().toString(16).slice(2, 10)}`,
       clean: true,
       reconnectPeriod: 5000,
-      // ❌ REMOVED username/password entirely since they are null
     });
 
     client.on("connect", () => {
-      console.log("✅ Connected to Railway Broker");
+      console.log("✅ Connected to broker.emqx.io");
       setConnected(true);
-
-      Object.values(TOPICS).forEach((topic) => {
-        client.subscribe(topic);
-      });
+      client.subscribe(TOPIC);
     });
 
-    client.on("message", (topic, message) => {
+    client.on("message", (_topic, message) => {
       try {
         const data = JSON.parse(message.toString());
-
-        if (topic === TOPICS.imu) {
-          setSensorData((prev) => ({ ...prev, imu: data }));
-          setDataHistory((prev) => ({
-            ...prev,
-            imu: [...prev.imu.slice(-59), data].slice(-60),
-          }));
-        } else if (topic === TOPICS.power) {
-          setSensorData((prev) => ({ ...prev, power: data }));
-          setDataHistory((prev) => ({
-            ...prev,
-            power: [...prev.power.slice(-59), data].slice(-60),
-          }));
-        } else if (topic === TOPICS.thermal) {
-          setSensorData((prev) => ({ ...prev, thermal: data }));
-          setDataHistory((prev) => ({
-            ...prev,
-            thermal: [...prev.thermal.slice(-59), data].slice(-60),
-          }));
-        } else if (topic === TOPICS.fault) {
-          setSensorData((prev) => ({ ...prev, fault: data }));
-        } else if (topic === TOPICS.status) {
-          setSensorData((prev) => ({ ...prev, status: data }));
-        }
+        setTelemetry(data);
+        setDataHistory((prev) => [...prev.slice(-59), data]);
       } catch (error) {
         console.error("Error parsing MQTT message:", error);
       }
@@ -112,17 +67,14 @@ function App() {
       <div className="scanline-effect"></div>
       <Header />
       <div className="app-container">
-        <ConnectionStatus connected={connected} status={sensorData.status} />
+        <ConnectionStatus connected={connected} speed={telemetry.speed} />
         <div className="main-content">
           <div className="left-column">
-            <UnityViewer
-              faultData={sensorData.fault}
-              statusData={sensorData.status}
-            />
-            <FaultDetector faultData={sensorData.fault} />
+            <UnityViewer />
+            <FaultDetector faultData={null} />
           </div>
           <div className="right-column">
-            <SensorGrid sensorData={sensorData} dataHistory={dataHistory} />
+            <SensorGrid telemetry={telemetry} dataHistory={dataHistory} />
           </div>
         </div>
       </div>
