@@ -7,7 +7,7 @@ import SensorGrid from "./components/SensorGrid";
 import UnityViewer from "./components/UnityViewer";
 import "./App.css";
 
-const BROKER_URL = "ws://broker.emqx.io:8083/mqtt";
+const BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
 const TOPIC = "npl/motor/telemetry";
 
 function App() {
