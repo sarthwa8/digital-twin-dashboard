@@ -30,8 +30,8 @@ STATUS_ADDR = 0x2103  # Block read: Frequency, Current, DC Bus, Output Voltage
 TEMP_THRESHOLD = 45.0
 
 # MQTT Configuration
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT = 8083
+MQTT_BROKER = "custom-mqtt-broker-production-33b9.up.railway.app"
+MQTT_PORT = 443
 MQTT_TOPIC = "npl/motor/telemetry"
 
 
@@ -67,6 +67,8 @@ class MotorController:
                     mqtt.CallbackAPIVersion.VERSION2,
                     transport="websockets"
                 )
+                self.mqtt_client.tls_set()
+                self.mqtt_client.ws_set_options(path="/mqtt")
                 self.mqtt_client.on_connect = self._on_mqtt_connect
                 self.mqtt_client.on_disconnect = self._on_mqtt_disconnect
                 self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
