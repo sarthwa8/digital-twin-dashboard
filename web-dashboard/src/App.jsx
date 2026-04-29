@@ -3,6 +3,7 @@ import Header from "./components/Header"
 import FaultStatus from "./components/FaultStatus"
 import ConfidenceGauge from "./components/ConfidenceGauge"
 import SensorGrid from "./components/SensorGrid"
+import UnityViewer from "./components/UnityViewer"
 import "./App.css"
 
 function App() {
@@ -17,6 +18,10 @@ function App() {
           <ConfidenceGauge value={telemetry.confidence} />
         </div>
         <SensorGrid telemetry={telemetry} />
+        <UnityViewer
+          faultData={telemetry.fault_class !== "Offline" ? { predicted_class: telemetry.fault_class } : null}
+          statusData={{ running: telemetry.online }}
+        />
         <div className="chart-placeholder">
           <span>Chart — coming soon</span>
         </div>
