@@ -21,6 +21,20 @@
   gap: 1rem;
 }
 
+/* Chart (2/3) + ControlPanel (1/3) */
+.mid-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .mid-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .app-main {
     padding: 1rem;

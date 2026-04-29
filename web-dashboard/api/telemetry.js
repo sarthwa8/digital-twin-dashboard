@@ -10,6 +10,10 @@ let latest = {
   vib_peak: 0,
   freq_hz: 0,
   vfd_temp: 0,
+  // Pi-reported control state
+  motor_running: false,
+  mode: "manual",        // "manual" | "auto"
+  auto_action: null,     // last autonomous action taken by Pi, e.g. "reduced_speed_70pct"
   timestamp: null,
 }
 
