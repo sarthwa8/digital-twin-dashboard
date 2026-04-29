@@ -4,10 +4,11 @@ import FaultStatus from "./components/FaultStatus"
 import ConfidenceGauge from "./components/ConfidenceGauge"
 import SensorGrid from "./components/SensorGrid"
 import UnityViewer from "./components/UnityViewer"
+import TelemetryChart from "./components/TelemetryChart"
 import "./App.css"
 
 function App() {
-  const { telemetry } = useTelemetry(1000)
+  const { telemetry, history } = useTelemetry(1000)
 
   return (
     <div className="app">
@@ -22,9 +23,7 @@ function App() {
           faultData={telemetry.fault_class !== "Offline" ? { predicted_class: telemetry.fault_class } : null}
           statusData={{ running: telemetry.online }}
         />
-        <div className="chart-placeholder">
-          <span>Chart — coming soon</span>
-        </div>
+        <TelemetryChart history={history} />
       </main>
     </div>
   )

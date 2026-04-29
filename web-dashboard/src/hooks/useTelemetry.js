@@ -16,8 +16,9 @@ const DEFAULT_STATE = {
   timestamp: null,
 }
 
-export function useTelemetry(intervalMs = 1000) {
+export function useTelemetry(intervalMs = 1000, historyLength = 60) {
   const [telemetry, setTelemetry] = useState(DEFAULT_STATE)
+  const [history, setHistory] = useState([])
   const [error, setError] = useState(null)
   const intervalRef = useRef(null)
 
@@ -28,6 +29,18 @@ export function useTelemetry(intervalMs = 1000) {
         const data = await res.json()
         setTelemetry(data)
         setError(null)
+        if (data.online) {
+          setHistory(prev => [
+            ...prev.slice(-(historyLength - 1)),
+            {
+              t: Date.now(),
+              speed: data.speed,
+              current: data.current,
+              temperature: data.temperature,
+              vibration: data.vibration,
+            },
+          ])
+        }
       } catch (e) {
         setError(e.message)
         setTelemetry(prev => ({ ...prev, online: false }))
@@ -36,7 +49,7 @@ export function useTelemetry(intervalMs = 1000) {
     poll()
     intervalRef.current = setInterval(poll, intervalMs)
     return () => clearInterval(intervalRef.current)
-  }, [intervalMs])
+  }, [intervalMs, historyLength])
 
-  return { telemetry, error }
+  return { telemetry, history, error }
 }
