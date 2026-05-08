@@ -1,417 +1,302 @@
-# Digital Twin Dashboard - Motor Fault Detection System
+# Real-Time Digital Twin System for Motor Fault Detection
 
-A complete real-time monitoring system for industrial motor fault detection using Digital Twin technology, IoT sensors, and Machine Learning.
+A complete bidirectional digital twin for a 0.5 HP three-phase induction motor, built during an internship at **National Physical Laboratory (CSIR), New Delhi**. The system fuses vibration, thermal, and electrical sensor data in real time, classifies bearing faults using a stacked deep learning ensemble, and enables remote motor control from a cloud dashboard.
 
-![Dashboard](https://img.shields.io/badge/Status-Demo%20Ready-green)
+![Status](https://img.shields.io/badge/Status-Live%20%26%20Tested-brightgreen)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![React](https://img.shields.io/badge/React-18-blue)
-![MQTT](https://img.shields.io/badge/MQTT-5.0-orange)
-
-## 🎯 Project Overview
-
-This system provides real-time visualization and fault detection for a 0.5 HP 3-phase induction motor using:
-- **IoT Sensors**: MPU-6050 (vibration), PZEM-004T (power), DS18B20 (temperature)
-- **Edge Computing**: Raspberry Pi 4 for local data processing
-- **Machine Learning**: CNN-based fault classification (CWRU dataset)
-- **Digital Twin**: Unity 3D visualization + Web dashboard
-
-### Detected Fault Types
-- ✅ Normal operation
-- ⚠️ Inner Race bearing fault
-- ⚠️ Ball bearing fault
-- 🔴 Outer Race bearing fault
+![Accuracy](https://img.shields.io/badge/Fault%20Classification-97.1%25-success)
+![License](https://img.shields.io/badge/License-Research-lightgrey)
 
 ---
 
-## 📁 Project Structure
+## What This System Does
 
-```
-digital-twin-dashboard/
-├── mock-sensors/                    # Python sensor simulator
-│   ├── motor_sensor_simulator.py   # Main simulator script
-│   └── requirements.txt            # Python dependencies
-│
-├── web-dashboard/                   # React web interface
-│   ├── src/
-│   │   ├── components/             # React components
-│   │   │   ├── Header.jsx
-│   │   │   ├── ConnectionStatus.jsx
-│   │   │   ├── FaultDetector.jsx
-│   │   │   ├── UnityViewer.jsx
-│   │   │   └── SensorGrid.jsx
-│   │   ├── App.jsx                 # Main app component
-│   │   ├── main.jsx                # Entry point
-│   │   └── index.css               # Global styles
-│   ├── public/                     # Static assets
-│   ├── package.json
-│   └── vite.config.js
-│
-└── mqtt-config/                     # MQTT setup guides
-    └── MQTT_SETUP.md
-
-```
+- **Reads live sensor data** from a real running motor — vibration (MPU-6050 at 1 kHz), temperature (DS18B20), and electrical parameters (VFD Modbus RS-485)
+- **Classifies bearing faults** in real time using a stacked ensemble of four deep learning models (CNN, LSTM, Transformer, Hybrid) achieving **97.1% accuracy** on the CWRU dataset
+- **Streams telemetry** to a cloud dashboard every second via HTTPS
+- **Accepts remote commands** from the dashboard — start, stop, e-stop, set speed, set mode — with under 2-second round-trip response
+- **Logs all data** to CSV for offline analysis and future model training
 
 ---
 
-## 🚀 Quick Start
+## System Architecture
 
-### Prerequisites
+```
+┌─────────────────────────────────────────────────────────┐
+│                    NPL Lab Network                       │
+│                                                          │
+│  ┌─────────────────┐          ┌──────────────────────┐  │
+│  │  Raspberry Pi 4 │◄────────►│   Inference Server   │  │
+│  │                 │  LAN     │   (Lab PC)           │  │
+│  │  MPU-6050       │  HTTP    │   FastAPI :8000      │  │
+│  │  DS18B20        │  :8000   │   4× ONNX models     │  │
+│  │  RS-485 / VFD   │          │   Stacked ensemble   │  │
+│  └────────┬────────┘          └──────────────────────┘  │
+│           │ HTTPS :443                                   │
+└───────────┼─────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────┐
+│                   Vercel Cloud                          │
+│                                                          │
+│   POST /api/telemetry   ◄──── Pi pushes every second   │
+│   GET  /api/telemetry   ────► Dashboard polls every 1s  │
+│   POST /api/command     ◄──── Dashboard sends commands  │
+│   GET  /api/command     ────► Pi polls every second     │
+│   Vercel KV             ──── Stores state               │
+└─────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────┐
+│              React Dashboard (Vercel)                   │
+│   Fault Status · Confidence Gauge · Sensor Grid        │
+│   Motor Control Panel · Offline Detection              │
+└─────────────────────────────────────────────────────────┘
+```
 
-**For Python Simulator:**
-- Python 3.8 or higher
-- pip package manager
+> **Why HTTPS and not MQTT?** The NPL lab firewall blocks MQTT ports 1883 and 8083. Port 443 is always open. All telemetry and commands route over HTTPS — no network configuration changes required.
 
-**For Web Dashboard:**
-- Node.js 16+ and npm
-- Modern web browser
+---
 
-### Step 1: Set Up Python Simulator
+## Hardware
+
+| Component | Model | Purpose |
+|---|---|---|
+| Edge controller | Raspberry Pi 4 (4GB) | Sensor reading, inference calls, VFD control |
+| Motor | Havells 0.5HP, 3-phase, 4-pole, 1380 RPM | Physical test subject |
+| VFD | Delta VFD-007EL21W-1 (220V single-phase in) | Speed and direction control |
+| Vibration sensor | MPU-6050 GY-521 (I2C, ±8g) | Bearing vibration at 1 kHz |
+| Temperature sensor | DS18B20 waterproof (1-Wire) | Motor casing temperature |
+| Load rig | Custom rope brake dynamometer + dual SAMSO scales | Controlled mechanical loading + torque measurement |
+| RS-485 adapter | USB to RS-485 converter | Modbus RTU communication with VFD |
+| Thermal camera | FLIR TG165-X | Thermal validation of DS18B20 readings |
+
+### Load Rig
+
+A custom rope brake dynamometer was fabricated for this project — welded steel frame, belt around the motor shaft pulley, and two SAMSO electronic hanging scales measuring tight-side (T1) and slack-side (T2) tension.
+
+```
+Torque (N·m) = (T1 − T2) × r
+```
+
+This gives actual measured shaft torque rather than an electrical estimate, and produces realistic vibration signatures under load.
+
+---
+
+## Fault Detection Model
+
+### Dataset
+CWRU (Case Western Reserve University) Bearing Dataset — drive-end, 12 kHz, fault sizes 0.007 / 0.014 / 0.021 inches, load conditions 0–3 HP.
+
+**Anti-leakage measures:**
+- `MAX_SEGS_PER_FILE = 200` — prevents segments from the same recording appearing in both train and test
+- `GroupKFold` cross-validation — all segments from the same file stay within the same fold
+
+### Feature Extraction Pipeline
+
+```
+2048-sample window
+    → Resample 1 kHz → 12 kHz
+    → High-pass filter at 100 Hz
+    → STFT (NPERSEG=512, NOVERLAP=384)
+    → Hilbert envelope + envelope spectrum
+    → (17, 769) feature matrix
+```
+
+### Models and Results
+
+| Model | OOF Accuracy | F1 Score |
+|---|---|---|
+| CNN | 66.85% | 0.609 |
+| LSTM | 69.60% | 0.658 |
+| Transformer | 69.65% | 0.660 |
+| Hybrid CNN-LSTM | 82.20% | 0.785 |
+| **Stacked Ensemble** | **97.10%** | **0.971** |
+
+The stacked ensemble uses all four models' 16 probability outputs as features for a `LogisticRegression` meta-learner trained on out-of-fold predictions. All models are exported as ONNX and served via FastAPI.
+
+> Note: Fold 3 models are deployed as they produced the best validation metrics. The OOF accuracy of 97.1% is the more conservative estimate computed across all five folds.
+
+---
+
+## Software
+
+### Raspberry Pi — `control_panel.py`
+
+Three parallel daemon threads:
+
+| Thread | Function |
+|---|---|
+| MPU-6050 sampler | 1 kHz sampling, 2048-sample sliding buffer, auto-calibration at startup, RMS + peak calculation |
+| Telemetry publisher | Fire-and-forget HTTP POST to Vercel `/api/telemetry` every second, 3s timeout |
+| Command poller | GET `/api/command` every second, execute on VFD, POST acknowledgment back |
+
+**Terminal commands:** `run`, `rev`, `stop`, `set <hz>`, `monitor`, `thermlog <label> <hz>`, `exit`
+
+**Monitor mode** — streams live telemetry every second, accepts inline commands, logs to `motor_delta_log.csv`.
+
+### Telemetry Payload
+
+```json
+{
+  "speed": 1380.0,
+  "current": 1.2,
+  "voltage": 230.0,
+  "power_w": 478.5,
+  "temperature": 27.3,
+  "vibration": 0.029,
+  "fault_class": "Normal",
+  "confidence": 0.94
+}
+```
+
+> `power_w` is three-phase apparent power (V × I × 1.732) — an approximation of true active power. True power = apparent power × power factor (typically 0.70–0.85 for an induction motor under load).
+
+### VFD Register Map (Modbus RS-485, 9600 baud, Slave ID 1)
+
+| Register | Value | Scaling |
+|---|---|---|
+| 0x2103 | Output frequency | ÷ 100 = Hz |
+| 0x2104 | Output current | ÷ 10 = A |
+| 0x2108 | DC bus voltage | ÷ 10 = V |
+| 0x2109 | Output voltage | ÷ 10 = V |
+| 0x210B | VFD internal temp | raw °C |
+
+### Bidirectional Control — Command Reference
+
+| Command | Value | Effect |
+|---|---|---|
+| `start` | null | Motor runs forward |
+| `stop` | null | Motor stops |
+| `e_stop` | null | Emergency stop — sets frequency to 0 before stopping |
+| `set_speed` | `{ "rpm": 1200 }` | Changes motor speed |
+| `set_mode` | `{ "mode": "manual" \| "auto" }` | Sets operation mode flag |
+
+After executing, Pi POSTs `{ "ack": true, "command": "...", "result": "ok" }` back to `/api/command`, clearing the pending queue.
+
+### Inference Server — `inference_server.py`
+
+FastAPI + Uvicorn on port 8000. Receives 2048-sample vibration windows from the Pi over LAN.
+
+**Endpoints:**
+- `GET /health` — status check
+- `POST /predict` — returns fault class, confidence, and class probabilities
+- `POST /predict/debug` — verbose output including per-model predictions
+
+**Artifacts** (in `./dt_model_artifacts/`):
+```
+cnn_model.onnx          5.4 MB
+lstm_model.onnx         10.1 MB
+transformer_model.onnx  4.4 MB
+hybrid_model.onnx       19.9 MB
+meta_learner.pkl        LogisticRegression stacking meta-learner
+feature_config.json     Preprocessing parameters
+```
+
+### Dashboard
+
+React app deployed at `https://digital-twin-dashboard-psi.vercel.app`
+
+**Panels:**
+- **Fault Status** — colour-coded: green (Normal), amber (Ball), orange (Outer Race), red (Inner Race)
+- **Confidence Gauge** — arc gauge 0–100%, red → amber → green
+- **Sensor Grid** — voltage, current, RPM, temperature, vibration (g), power (VA)
+- **Connection Status** — goes offline if no data for 5+ seconds
+- **Motor Control** — Start, Stop, E-Stop, speed input (RPM)
+
+---
+
+## Live Readings (Normal Operation, 50 Hz, 5 kg Load)
+
+| Parameter | Typical | Range |
+|---|---|---|
+| Output Voltage | 230 V | 225–232 V |
+| Output Current | 1.3 A | 1.1–1.6 A |
+| Motor Speed | 1380 RPM | 1350–1400 RPM |
+| Vibration RMS | 0.029 g | 0.020–0.045 g |
+| Vibration Peak | 0.11 g | 0.08–0.18 g |
+| Motor Temperature | 25–28 °C | Rises after 15+ min |
+| Power (apparent) | 520 VA | 438–630 VA |
+| VFD Internal Temp | 70 °C | 55–92 °C |
+| Fault Class | Normal | 91–98% confidence |
+
+---
+
+## Setup
+
+### Raspberry Pi
 
 ```bash
-cd mock-sensors
-
 # Install dependencies
-pip install -r requirements.txt
+pip install pymodbus smbus2 paho-mqtt --break-system-packages
 
-# Run simulator (connects to public MQTT broker)
-python motor_sensor_simulator.py
+# Enable 1-Wire (DS18B20)
+# Add to /boot/config.txt: dtoverlay=w1-gpio
+
+# Run
+python3 control_panel.py
 ```
 
-The simulator will:
-- Connect to HiveMQ public MQTT broker
-- Cycle through all 4 fault types (60 seconds each)
-- Publish sensor data at 1 Hz
-- Display real-time console output
+### Inference Server (Lab PC)
 
-### Step 2: Set Up Web Dashboard
+```bash
+cd "Inference Server"
+pip install fastapi uvicorn onnxruntime scipy numpy
+
+# Start server
+uvicorn inference_server:app --host 0.0.0.0 --port 8000
+```
+
+### Dashboard
 
 ```bash
 cd web-dashboard
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-```
-
-The dashboard will be available at `http://localhost:3000`
-
-### Step 3: View Real-Time Data
-
-1. Open `http://localhost:3000` in your browser
-2. Wait for MQTT connection (should be automatic)
-3. Watch live sensor data and fault predictions update
-
----
-
-## 📊 System Architecture
-
-```
-┌─────────────────┐
-│  Physical Motor │
-│   (Real/Mock)   │
-└────────┬────────┘
-         │ Sensors (I²C, 1-Wire, UART)
-         ▼
-┌─────────────────┐
-│  Raspberry Pi 4 │
-│  Edge Computer  │
-│  - Data Collect │
-│  - ML Inference │
-└────────┬────────┘
-         │ MQTT Protocol
-         ▼
-┌─────────────────┐
-│   MQTT Broker   │
-│   (HiveMQ)      │
-└────────┬────────┘
-         │ WebSocket
-         ▼
-┌─────────────────┐
-│  Web Dashboard  │
-│  - React UI     │
-│  - Unity 3D     │
-│  - Real-time    │
-│    Charts       │
-└─────────────────┘
+npm run dev        # local dev
+# or deploy to Vercel
 ```
 
 ---
 
-## 🔌 Hardware Specifications
+## File Reference
 
-| Component | Model | Specification | Purpose |
-|-----------|-------|---------------|---------|
-| **Edge Node** | Raspberry Pi 4 Model B | 4GB RAM | Data aggregation, MQTT broker, ML inference |
-| **IMU Sensor** | MPU-6050 | 6-DoF | High-frequency vibration & rotational dynamics |
-| **Power Analyzer** | PZEM-004T v3.0 | Split-Core CT | Real-time electrical parameters (V, I, P, pf) |
-| **Thermal Probe** | DS18B20 | Waterproof 1-Wire | Stator housing temperature monitoring |
-| **Test Motor** | Generic | 0.5 HP, 3-Phase, 4-Pole, 1440 RPM | Physical plant for fault data generation |
-| **VFD** | Delta MS300 | Single-Phase Input | Motor speed control and protection |
-
-**Total Budget**: ₹20,850 (~$250 USD)
+| File | Location | Purpose |
+|---|---|---|
+| `control_panel.py` | Pi `~/` | Main motor control + sensors + inference + telemetry |
+| `vfd_diagnostic.py` | Pi `~/` | VFD register diagnostic tool |
+| `inference_server.py` | PC `Downloads/Inference Server/` | FastAPI fault classification server |
+| `dt_model_artifacts/` | PC `Downloads/Inference Server/` | ONNX models + meta-learner + config |
+| `motor_delta_log.csv` | Pi `~/` | Running sensor + fault log |
 
 ---
 
-## 📡 MQTT Topics
+## Future Work
 
-All data is published to the following topics:
-
-```
-digitaltwin/motor/sensors/imu        # MPU-6050 accelerometer + gyroscope
-digitaltwin/motor/sensors/power      # PZEM-004T voltage, current, power
-digitaltwin/motor/sensors/thermal    # DS18B20 temperature
-digitaltwin/motor/fault/prediction   # CNN model classification output
-digitaltwin/motor/status             # Motor runtime status
-```
-
-### Example Payloads
-
-**IMU Data:**
-```json
-{
-  "timestamp": "2025-01-27T12:00:00",
-  "accelerometer": {
-    "x": 2.45,
-    "y": -1.23,
-    "z": 10.15,
-    "unit": "m/s²"
-  },
-  "gyroscope": {
-    "x": 8.32,
-    "y": -3.12,
-    "z": 1.45,
-    "unit": "°/s"
-  },
-  "sample_rate_hz": 100
-}
-```
-
-**Fault Prediction:**
-```json
-{
-  "timestamp": "2025-01-27T12:00:00",
-  "model": "CNN",
-  "classes": 4,
-  "predicted_class": "InnerRace",
-  "confidence": 85.2,
-  "probabilities": {
-    "Normal": 10.0,
-    "InnerRace": 85.0,
-    "Ball": 2.0,
-    "OuterRace": 3.0
-  }
-}
-```
+- **Domain adaptation** — fine-tune classifier on real 1 kHz motor data, remove resampling dependency
+- **Thermal ODE model** — predict time-to-overheat using DS18B20 + current
+- **Meta health score** — single 0–100 index combining all sensor modalities
+- **Autonomous threshold control** — auto-reduce speed or e-stop based on fault confidence and vibration thresholds
+- **PZEM-004T integration** — true power quality measurements (power factor, harmonics)
+- **Edge inference** — move ONNX models onto Raspberry Pi directly
 
 ---
 
-## 🎨 Features
+## References
 
-### Current Features (Demo Ready)
-- ✅ Real-time MQTT data streaming
-- ✅ Mock sensor data generator with realistic fault patterns
-- ✅ Live sensor visualization (vibration, power, temperature)
-- ✅ CNN-based fault classification with confidence scores
-- ✅ Responsive web dashboard
-- ✅ Connection status monitoring
-- ✅ Historical data charts (60-second window)
+Key references for the fault detection methodology:
 
-### Upcoming Features (When Hardware Arrives)
-- 🔄 Unity WebGL 3D motor visualization
-- 🔄 Real Raspberry Pi sensor integration
-- 🔄 Historical data logging (InfluxDB)
-- 🔄 Alert system for fault detection
-- 🔄 Mobile app (React Native)
-- 🔄 Multi-motor monitoring
+- CWRU Bearing Dataset: https://engineering.case.edu/bearingdatacenter
+- Hendriks et al. (2022) — data leakage in CWRU benchmarks: https://doi.org/10.1016/j.ymssp.2021.108732
+- Grieves (2014) — Digital Twin concept whitepaper
+- Fuller et al. (2020) — Digital Twin enabling technologies, IEEE Access
 
 ---
 
-## 🧪 Testing Without Hardware
+## Author
 
-The mock simulator generates realistic sensor data:
-
-1. **Normal Operation** (0-60s): Low vibration, stable power consumption
-2. **Inner Race Fault** (60-120s): Increased vibration at 5.4× harmonic
-3. **Ball Fault** (120-180s): Moderate vibration at 2.3× harmonic
-4. **Outer Race Fault** (180-240s): High vibration at 3.6× harmonic
-
-Each fault pattern affects:
-- Vibration amplitude and frequency content
-- Power consumption (increased current draw)
-- Temperature (increased heat generation)
-- ML model confidence (gradually increases over time)
-
----
-
-## 🔧 Integrating Real Hardware
-
-### Raspberry Pi Setup
-
-1. **Install Raspbian OS** on your Pi 4
-2. **Connect sensors:**
-   - MPU-6050 → I²C (GPIO 2/3)
-   - PZEM-004T → UART (GPIO 14/15)
-   - DS18B20 → 1-Wire (GPIO 4)
-
-3. **Install dependencies:**
-```bash
-sudo apt update
-sudo apt install python3-pip i2c-tools
-pip3 install paho-mqtt smbus RPi.GPIO --break-system-packages
-```
-
-4. **Replace mock data with real sensor code:**
-```python
-# Instead of generate_imu_data(), read from MPU-6050:
-import smbus
-bus = smbus.SMBus(1)
-MPU6050_ADDR = 0x68
-
-def read_imu():
-    # Read accelerometer registers
-    accel_x = read_word_2c(bus, MPU6050_ADDR, 0x3B)
-    # ... (implement MPU-6050 protocol)
-    return {"accelerometer": {...}, "gyroscope": {...}}
-```
-
-5. **Update MQTT broker** to your own (see mqtt-config/MQTT_SETUP.md)
-
----
-
-## 🌐 Unity WebGL Integration
-
-To embed your Unity motor simulation:
-
-1. **Export Unity Project as WebGL:**
-   - In Unity: File → Build Settings → WebGL → Build
-   - Name the build folder "unity-build"
-
-2. **Place build in web dashboard:**
-```bash
-cp -r /path/to/unity-build web-dashboard/public/unity/
-```
-
-3. **Update UnityViewer.jsx:**
-```jsx
-// Uncomment the iframe in UnityViewer.jsx
-<iframe 
-  src="/unity/index.html" 
-  title="Motor Digital Twin"
-  style={{ width: '100%', height: '100%', border: 'none' }}
-  allow="autoplay; fullscreen"
-/>
-```
-
-4. **Add MQTT plugin to Unity** (optional):
-   - Install [M2MqttUnity](https://github.com/gpvigano/M2MqttUnity)
-   - Subscribe to `digitaltwin/motor/fault/prediction` topic
-   - Animate motor based on fault type
-
----
-
-## 📈 Performance Considerations
-
-### Simulator
-- **Data Rate**: 1 Hz (adjustable via `sample_rate` parameter)
-- **CPU Usage**: ~5% on modern systems
-- **Network**: ~1 KB/s MQTT traffic
-
-### Web Dashboard
-- **Update Rate**: Real-time (as fast as MQTT messages arrive)
-- **Memory**: ~50 MB for 60-second data window
-- **Recommended**: Chrome/Edge for best performance
-
-### Production Recommendations
-- Use dedicated MQTT broker (not public)
-- Implement TLS/SSL encryption
-- Add authentication and access control
-- Use time-series database for historical data (InfluxDB)
-- Deploy dashboard on cloud (Vercel, Netlify, AWS)
-
----
-
-## 🐛 Troubleshooting
-
-### Simulator Issues
-
-**"paho-mqtt not installed"**
-```bash
-pip install paho-mqtt
-```
-
-**"Connection refused"**
-- Check internet connection
-- Try alternative broker: `test.mosquitto.org`
-- Check firewall settings
-
-### Dashboard Issues
-
-**"npm install fails"**
-```bash
-# Clear cache and retry
-npm cache clean --force
-rm -rf node_modules package-lock.json
-npm install
-```
-
-**"MQTT connection fails"**
-- Check browser console for errors
-- Verify WebSocket connection (wss://broker.hivemq.com:8884/mqtt)
-- Try opening in incognito mode (disable extensions)
-
-**"No data appearing"**
-- Ensure simulator is running
-- Check MQTT topics match exactly
-- Open browser DevTools → Network tab → WS to inspect WebSocket messages
-
----
-
-## 📚 Additional Resources
-
-- **MQTT Setup Guide**: `mqtt-config/MQTT_SETUP.md`
-- **CWRU Bearing Dataset**: https://engineering.case.edu/bearingdatacenter
-- **Unity WebGL Documentation**: https://docs.unity3d.com/Manual/webgl-building.html
-- **React Recharts**: https://recharts.org/
-- **MQTT Protocol**: https://mqtt.org/
-
----
-
-## 🤝 Contributing
-
-This is a thesis project, but suggestions are welcome:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
----
-
-## 📄 License
-
-This project is for educational and research purposes.
-
----
-
-## 👨‍🎓 Author
-
-**Digital Twin Thesis Project**  
-Department of Mechanical/Electrical Engineering  
-Focus: Predictive Maintenance using IoT and Machine Learning
-
----
-
-## 🎯 Next Steps
-
-1. ✅ Run the mock simulator
-2. ✅ Test the web dashboard
-3. 🔄 Integrate real Raspberry Pi hardware
-4. 🔄 Add Unity 3D visualization
-5. 🔄 Deploy to production
-6. 🔄 Collect real fault data
-7. 🔄 Train improved ML models
-
----
-
-**Status**: Ready for demonstration and hardware integration  
-**Last Updated**: January 2026
+**Sarthak Vijay Sukhral**
+B.Tech ECE, Punjab Engineering College, Chandigarh
+Internship at National Physical Laboratory (CSIR), New Delhi
+Under guidance of Dr. Paramita Guha, Senior Scientist
+January – May 2026
